@@ -3,6 +3,7 @@ library(lattice)
 library(viridisLite)
 library(RColorBrewer)
 library(raster)
+library(rasterVis)
 setwd("I:\\workspace\\smouldering")
 
 setwd("I:\\workspace\\smouldering\\biochar2-06252024")
@@ -10,6 +11,7 @@ setwd("I:\\workspace\\smouldering\\biochar3")
 setwd("I:\\workspace\\smouldering\\biochar5")
 setwd("I:\\workspace\\smouldering\\biochar4")
 setwd("I:\\workspace\\smouldering\\october-images")
+setwd("I:\\workspace\\smouldering\\nitrogen")
 
 
 allpngs <- Sys.glob("*.png")
@@ -37,7 +39,15 @@ maxvec <- rep(NA, nfiles)
 
 for(i in 1:nfiles)
 {
+  
+  setwd("I:\\workspace\\smouldering\\nitrogen")
+  
+  
   f <- flist[i]
+  
+  fsplit <- strsplit(f, "-")[[1]]
+  wspeed <- fsplit[6]
+  wspeed <- gsub(".tiff", "", wspeed)
   
   img <- readImage(f)
   rband <- img[,,1]
@@ -100,20 +110,41 @@ for(i in 1:nfiles)
   medvec[i] <- median(na.exclude(transsub))
   maxvec[i] <- max(na.exclude(transsub))
   subraster <- transraster
-  subraster[subraster < 500] <- 0
+  subraster[subraster < 500] <- NA
   subraster <- t(subraster)
   transraster <- transraster[transraster]
+  setwd("I:\\workspace\\smouldering\\nitrogen\\output")
+  
   fout <- gsub(".tiff", "-contour.png", f)
+  my.at <- seq(900, max(na.exclude(transvec)), length  = 6)
+  
   png(fout)
-  plot(subraster, col = coul, zlim = c(900, maxval))
+  print(levelplot(subraster, layers = 1, margin = list(FUN = 'median'), zlim = c(900, maxval), contour=TRUE, at = my.at, main = paste("95th Percentile  = ", round(q95), ", wind = ", wspeed, sep = "")))
   dev.off()
-  
-  fout <- gsub(".tiff", "-histogram.png", f)
-  png(fout)
-  hist(na.exclude(transsub), breaks = 100, xlab = f, main = "")
-  dev.off()
-  
-  
+  # 
+  # fout <- gsub(".tiff", "-histogram.png", f)
+  # png(fout)
+  # hist(na.exclude(transsub), breaks = 100, xlab = f, main = "")
+  # dev.off()
+  # 
+  # is95 <- subraster
+  # q95 <- quantile(na.exclude(transsub), 0.95)
+  # is95[subraster >= q95] <- 1
+  # is95[subraster < q95] <- 0
+  # fout <- gsub(".tiff", "-95perc.png", f)
+  # png(fout)
+  # plot(is95, col = coul, main = paste("95th Percentile  = ", round(q95), ", wind = ", wspeed, sep = ""))
+  # dev.off()
+  # 
+  # 
+  # is1600 <- subraster
+  # is1600[subraster >= 1600] <- 1
+  # is1600[subraster < 1600] <- 0
+  # fout <- gsub(".tiff", "-95perc.png", f)
+  # png(fout)
+  # plot(is1600, col = coul, main = paste("Temp > 1600 , wind = ", wspeed, sep = ""))
+  # dev.off()
+  # 
   print(i)
 }
 
