@@ -113,20 +113,23 @@ for(i in 1:nfiles)
   subraster[subraster < 500] <- NA
   subraster <- t(subraster)
   transraster <- transraster[transraster]
+  q95 <- quantile(na.exclude(transsub), 0.95)
   setwd("I:\\workspace\\smouldering\\nitrogen\\output")
   
   fout <- gsub(".tiff", "-contour.png", f)
   my.at <- seq(900, max(na.exclude(transvec)), length  = 6)
   
-  png(fout)
-  print(levelplot(subraster, layers = 1, margin = list(FUN = 'median'), zlim = c(900, maxval), contour=TRUE, at = my.at, main = paste("95th Percentile  = ", round(q95), ", wind = ", wspeed, sep = "")))
+  png(fout, width = 2704 , height = 2028 , res = 300)
+  print(levelplot(subraster, layers = 1,  zlim = c(900, maxval), cex = 3, 
+                  contour=TRUE, at = my.at, main = paste("95th Percentile  = ",
+                  round(q95), ", wind = ", wspeed, sep = ""), margin = FALSE))
   dev.off()
-  # 
-  # fout <- gsub(".tiff", "-histogram.png", f)
-  # png(fout)
-  # hist(na.exclude(transsub), breaks = 100, xlab = f, main = "")
-  # dev.off()
-  # 
+
+  fout <- gsub(".tiff", "-histogram.png", f)
+  png(fout)
+  hist(na.exclude(transsub), breaks = 100, xlab = f, main = "")
+  dev.off()
+
   # is95 <- subraster
   # q95 <- quantile(na.exclude(transsub), 0.95)
   # is95[subraster >= q95] <- 1
