@@ -1,285 +1,272 @@
-library(EBImage)
-library(lattice)
-library(viridisLite)
-library(RColorBrewer)
-library(raster)
-library(rasterVis)
-setwd("I:\\workspace\\smouldering")
-
-setwd("I:\\workspace\\smouldering\\biochar2-06252024")
-setwd("I:\\workspace\\smouldering\\biochar3")
-setwd("I:\\workspace\\smouldering\\biochar5")
-setwd("I:\\workspace\\smouldering\\biochar4")
-setwd("I:\\workspace\\smouldering\\october-images")
-setwd("I:\\workspace\\smouldering\\nitrogen")
+setwd("I:\\workspace\\restime")
 
 
-allpngs <- Sys.glob("*.png")
-alltifs <- Sys.glob("*.tiff")
-# 
-# rootstr <- "charcoal1sm"
-# 
-# flist <- allpngs[grep(rootstr, allpngs)]
-flist <- alltifs
+resmat <- read.csv("ResTimeData.csv")
 
-nfiles <- length(flist)
+resmat <- read.csv("ParticleSpacing_Data_Correctloadings.csv")
+resmat <- read.csv("ParticleSpacing_Data_samedensities.csv")
 
+resmat <- resmat[1:50,]
+restime2 <- resmat$Residence.Time..s.
+Betavals1 <- resmat$beta1..Packing.Ratio...mm.3.mm.3.
+Betavals2 <- resmat$beta2..Packing.Ratio...mm.3.mm.3.
+Betavals3 <- resmat$beta3..Packing.Ratio...mm.3.mm.3.
+lambdavals <- resmat$Lamda..Porosity...mm.3.mm.2.
 
-#y <-  55.621x2 - 590.08x + 2193.2
-#y <- 56.552x2 - 584.38x + 2177.7
+loadingvec1 <- resmat$Fuel.Loading..kg.m.2.
+loadingvec2 <- resmat$Fuel.Loading..g.mm.2.
+loadingvec3 <- resmat$Fuel.Loading..tons.acre.
 
+diam <- resmat$Diameter..mm.
 
+massvec <- resmat$mass..g.
+lrt <- log(restime2)
+logbeta2 <- log(Betavals2)
 
-rotate <- function(x) t(apply(x, 2, rev))
-coul <- viridis(100)
-coul <- colorRampPalette(brewer.pal(8, "PiYG"))(25)
-tempvec <- rep(NA, nfiles)
-medvec <- rep(NA, nfiles)
-maxvec <- rep(NA, nfiles)
+squaremod.linear <- lm(restime2~ diam * poly(Betavals2, 2, raw=TRUE))
+summary(squaremod.linear)
 
-for(i in 1:nfiles)
+plot(Betavals2, restime2, type = "n")
+betapredseq <- seq(min(Betavals2), max(Betavals2), length= 100)
+diam.unique <- unique(diam)
+logdiam.unique <- log(diam)
+ndiams <- length(diam.unique)
+
+prd <- Betavals2**2 / diam
+
+for(i in 1:ndiams)
 {
+  predmat <- data.frame(Betavals2 = betapredseq, diam = rep(diam.unique[i], 100))
+  predvec <- predict(squaremod.linear, predmat)
+  lines((betapredseq), (predvec), col  = i)
+  points((Betavals2[diam == diam.unique[i]]), (restime2[diam == diam.unique[i]]), col = i)
   
-  setwd("I:\\workspace\\smouldering\\nitrogen")
-  
-  
-  f <- flist[i]
-  
-  fsplit <- strsplit(f, "-")[[1]]
-  wspeed <- fsplit[6]
-  wspeed <- gsub(".tiff", "", wspeed)
-  
-  img <- readImage(f)
-  rband <- img[,,1]
-  gband <- img[,,2]
-  bband <- img[,,3]
-  
-  rvec <- as.numeric(rband)
-  bvec <- as.numeric(bband)
-  gvec <- as.numeric(gband)
-  
-  svec <- rvec + gvec
-  ratband <- rband / gband
-  
-  rdat <- imageData(rband)
-  bdat <- imageData(bband)
-  gdat <- imageData(gband)
-  
-  rraster <- raster(rdat)
-  braster <- raster(rdat)
-  graster <- raster(gdat)
-  
-  
-  ratdat <- imageData(ratband)
-  ratraster <- raster(rraster)
-  ratvec <- as.numeric(ratdat)
-  ratvec[is.infinite(ratvec)] <- .001
-  ratvec[is.na(ratvec)] <- .001
-  
-  #ratvec <- na.exclude(ratvec)
-  
-  #transvec <- 55.621*ratvec**2 - 590.08*ratvec + 2193.2
-  transvec <- 56.552*ratvec**2 -  584.38*ratvec +  2177.7
-  transvec[svec < 0.0001] <- 0
-  maxval <- 56.552 -  584.38 +  2177.7
-  nnval <- quantile(transvec, 0.99)
-  
-  transvec[transvec > maxval] <- NA
-  transsub <- transvec[transvec > 250]
-  #transvec[bvec < .01 ] <- 0
-  transvec[svec < .075 ] <- 0
-  # transvec[transvec <1700] <- 0
-  transvec[transvec <250] <- 0
-  
-  
-  transmat <- matrix(transvec, nrow = dim(ratdat)[1], byrow = F)
-  #transmat <- t(transmat)
-  #transmat <- rotate(transmat)
-  #transmat <- rotate(transmat)
-  #transmat <- rotate(transmat)
-  
-  #transmat <- apply(transmat, 1, "rev")
-  #transmat <- apply(transmat, 2, "rev")
-  
-  transimg <- Image(transmat)
-  # plot(transimg)
-  transraster <- raster(transmat)
-  
-  transsub <- transvec[transvec > 0]
-  tempvec[i] <- mean(na.exclude(transsub))
-  medvec[i] <- median(na.exclude(transsub))
-  maxvec[i] <- max(na.exclude(transsub))
-  subraster <- transraster
-  subraster[subraster < 500] <- NA
-  subraster <- t(subraster)
-  transraster <- transraster[transraster]
-  q95 <- quantile(na.exclude(transsub), 0.95)
-  setwd("I:\\workspace\\smouldering\\nitrogen\\output")
-  
-  fout <- gsub(".tiff", "-contour.png", f)
-  my.at <- seq(900, max(na.exclude(transvec)), length  = 6)
-  
-  png(fout, width = 2704 , height = 2028 , res = 300)
-  print(levelplot(subraster, layers = 1,  zlim = c(900, maxval), cex = 3, 
-                  contour=TRUE, at = my.at, main = paste("95th Percentile  = ",
-                  round(q95), ", wind = ", wspeed, sep = ""), margin = FALSE))
-  dev.off()
-
-  fout <- gsub(".tiff", "-histogram.png", f)
-  png(fout)
-  hist(na.exclude(transsub), breaks = 100, xlab = f, main = "")
-  dev.off()
-
-  # is95 <- subraster
-  # q95 <- quantile(na.exclude(transsub), 0.95)
-  # is95[subraster >= q95] <- 1
-  # is95[subraster < q95] <- 0
-  # fout <- gsub(".tiff", "-95perc.png", f)
-  # png(fout)
-  # plot(is95, col = coul, main = paste("95th Percentile  = ", round(q95), ", wind = ", wspeed, sep = ""))
-  # dev.off()
-  # 
-  # 
-  # is1600 <- subraster
-  # is1600[subraster >= 1600] <- 1
-  # is1600[subraster < 1600] <- 0
-  # fout <- gsub(".tiff", "-95perc.png", f)
-  # png(fout)
-  # plot(is1600, col = coul, main = paste("Temp > 1600 , wind = ", wspeed, sep = ""))
-  # dev.off()
-  # 
-  print(i)
 }
 
-outmat <- cbind(tempvec, medvec, maxvec)
-colnames(outmat) <- c("mean temp", "median temp", "maximum temp")
+plot(squaremod.linear$residuals)
 
-write.table(outmat, "outmat-october.txt")
+plot(prd, restime2)
+abline(coef(simple.model)[1], coef(simple.model)[2])
+
+transform.model <- lm(restime2~  diam+poly(prd, 3, raw=TRUE))
+summary(transform.model)
 
 
-###Parallel approach
+plot(prd, restime2, type ="n")
+prdpredseq <- seq(min(prd), max(prd), length= 100)
+
+prd.sub <- prd[diam ==diam.unique[3]]
+lrt.sub <- lrt[diam ==diam.unique[3]]
+# transform.model <- lm(restime2~  diam+prd)
+# summary(transform.model)
+
+prd <- (diam)*((Betavals2^0.3333))
+logdiam <- log(diam)
+prd <- (Betavals2^2) / logdiam
+
+dm <- data.frame(Betavals = Betavals2, logdiam = logdiam)
+nlsmod <- nls(lrt ~ A*Betavals^k / logdiam + B * logdiam, start = list(A =1, B = 1, k = 2), data = dm)
+summary(nlsmod)
+
+simple.model <- lm(lrt ~ prd + loadingvec1 + logdiam)
 
 
+#prd <- (diam)*((Betavals2^0.3333))
+prdpredseq <- seq(min(prd), max(prd), length= 100)
+loadpredseq <- seq(min(loadingvec1), max(loadingvec1), length= 100)
 
-getimgs <- function(i)
+betapredseq <- seq(min(Betavals2), max(Betavals2), length= 100)
+
+logmass <- log(massvec)
+simple.model <- lm(lrt ~ loadingvec1 + logdiam)
+summary(simple.model)
+plot(loadingvec1, lrt, type  = "n", ylim = c(0, 6), xlab = "Loading (kg / m^2)")
+#plot(Betavals2, lrt, type  = "n", ylim = c(0, 6))
+
+for(i in 1:ndiams)
 {
-  library(EBImage)
-  library(lattice)
-  library(viridisLite)
-  library(RColorBrewer)
-  library(raster)
+ # predmat <- data.frame(prd = prdpredseq, logdiam = log(rep((diam.unique[i]), 100)), loadingvec = rep(median(loadingvec), 100))
+  predmat <- data.frame(loadingvec1 = loadpredseq, logdiam = log(rep((diam.unique[i]), 100)))
   
-  f <- flist[i]
+  #predmat <- data.frame(Betavals = betapredseq, logdiam = rep(log(diam.unique[i]), 100))
   
-  img <- readImage(f)
-  rband <- img[,,1]
-  gband <- img[,,2]
-  bband <- img[,,3]
+  predvec <- predict(simple.model, predmat)
+  #predvec <- predict(nlsmod, predmat)
+  lines((loadpredseq), (predvec), col  = i)
+  points(loadingvec1[diam == (diam.unique[i])], lrt[diam == diam.unique[i]], col = i)
   
-  rvec <- as.numeric(rband)
-  bvec <- as.numeric(bband)
-  gvec <- as.numeric(gband)
-  
-  svec <- rvec + gvec
-  ratband <- rband / gband
-  
-  rdat <- imageData(rband)
-  bdat <- imageData(bband)
-  gdat <- imageData(gband)
-  
-  rraster <- raster(rdat)
-  braster <- raster(rdat)
-  graster <- raster(gdat)
-  
-  
-  ratdat <- imageData(ratband)
-  ratraster <- raster(rraster)
-  ratvec <- as.numeric(ratdat)
-  ratvec[is.infinite(ratvec)] <- .001
-  ratvec[is.na(ratvec)] <- .001
-  
-  #ratvec <- na.exclude(ratvec)
-  
-  #transvec <- 55.621*ratvec**2 - 590.08*ratvec + 2193.2
-  transvec <- 56.552*ratvec**2 -  584.38*ratvec +  2177.7
-  transvec[svec < 0.0001] <- 0
-  maxval <- 56.552 -  584.38 +  2177.7
-  nnval <- quantile(transvec, 0.99)
-  
-  transvec[transvec > maxval] <- NA
-  transsub <- transvec[transvec > 250]
-  #transvec[bvec < .01 ] <- 0
-  transvec[svec < .075 ] <- 0
-  # transvec[transvec <1700] <- 0
-  transvec[transvec <250] <- 0
-  
-  
-  transmat <- matrix(transvec, nrow = dim(ratdat)[1], byrow = F)
-  #transmat <- t(transmat)
-  #transmat <- rotate(transmat)
-  #transmat <- rotate(transmat)
-  #transmat <- rotate(transmat)
-  
-  #transmat <- apply(transmat, 1, "rev")
-  #transmat <- apply(transmat, 2, "rev")
-  
-  transimg <- Image(transmat)
-  # plot(transimg)
-  transraster <- raster(transmat)
-  
-  transsub <- transvec[transvec > 0]
-  meanval <- mean(na.exclude(transsub))
-  medval <- median(na.exclude(transsub))
-  sdval <- sd(na.exclude(transsub))
-  madval <- mad(na.exclude(transsub))
-  nval <- length(na.exclude(transsub))
-  subraster <- transraster
-  subraster[subraster < 500] <- 0
-  subraster <- t(subraster)
-  transraster <- transraster[transraster]
-  fout <- gsub(".tiff", "-contour.png", f)
-  png(fout)
-  plot(subraster, col = coul, zlim = c(900, maxval))
-  dev.off()
-  
-  outvec <- c(meanval, medval, sdval, madval, nval)
-  return(outvec)
 }
 
-library(foreach)
-#Parallel
-require(foreach)
-require(parallel)
-require(doParallel)
-
-cores <- 6  #32
-cl<-makeCluster(cores) #register cores
-registerDoParallel(cl, cores = cores)
+summary(simple.model$residuals)
 
 
-outlist <- foreach(k=1:nfiles, .combine=rbind, .packages = c("EBImage", "lattice", "viridisLite", "RColorBrewer", "raster")) %dopar% {
-  getimgs(k)
+models <- list()
+plot(prd, lrt, type  = "n")
+
+for(i in 1:ndiams)
+  {
+  # Subset data for the current diameter
+  prd.sub <- prd[diam == diam.unique[i]]
+  lrt.sub <- lrt[diam == diam.unique[i]]
+  # Fit a polynomial regression (e.g., degree 2)
+  #poly_model <- lm(lrt.sub ~ poly(prd.sub, 2))
+  
+  # Store the model in the list
+  #models[[as.character(diam.unique[i])]] <- poly_model
+  
+  # Print a summary for inspection
+  points(prd.sub, lrt.sub, col = i)
+  prdpredseq <- seq(min(prd.sub), max(prd.sub), length= 100)
+  
+  predmat <- data.frame(prd = prdpredseq, diam = rep(diam.unique[i], 100))
+  
+  lines(prdpredseq, predict(fm1, predmat), col  =i)
 }
 
-stopCluster(cl)
-closeAllConnections()
+dfac <- as.factor(diam)
+fm1 <- lmer(lrt ~ poly(prd, 3) + ( poly(prd, 3) | diam))
+summary(fm1)
 
-plot(outlist[,5])
+squaremod <- lm(lrt ~ diam * poly(logbeta2, 2, raw=TRUE))
 
-outsub <- outlist[outlist[,5] > 100,]
+summary(squaremod)
 
-plot(outsub[,1])
-points(1:nfiles, outlist[,2], col = "red")
+predmat <- data.frame(prd = prdpredseq, dfac = rep(diam.unique[1], 100))
+predvec <- predict(fm1, predmat)
 
-nsub <- dim(outsub)[1]
+plot(prdpredseq, predvec)
 
-plot(outsub[,1])
-points(1:nsub, outsub[,2], col = "red")
+cubemod <- lm(lrt ~ diam * poly(logbeta2, 3, raw=TRUE))
 
-plot(outsub[,4])
+summary(cubemod)
+
+betapredseq <- seq(min(logbeta2), max(logbeta2), length= 100)
+diam.unique <- unique(diam)
+ndiams <- length(diam.unique)
+plot(logbeta2, lrt, type = "n")
+
+for(i in 1:ndiams)
+{
+  predmat <- data.frame(logbeta2 = betapredseq, diam = rep(diam.unique[i], 100))
+  predvec <- predict(squaremod, predmat)
+  lines((betapredseq), (predvec), col  = i)
+  points((logbeta2[diam == diam.unique[i]]), (lrt[diam == diam.unique[i]]), col = i)
+  
+}
+
+plot(logbeta2, lrt)
+
+for(i in 1:ndiams)
+{
+  predmat <- data.frame(logbeta2 = betapredseq, diam = rep(diam.unique[i], 100))
+  predvec <- predict(cubemod, predmat)
+  lines(betapredseq, predvec, col  = i)
+  points(logbeta2[diam == diam.unique[i]], lrt[diam == diam.unique[i]], col = i)
+  
+}
+
+Diam <- resmat$Diam
+Loading <- resmat$loading
+Moisture <- resmat$Moisture
+
+nlsmod <- nls(restime2 ~ A*Betavals + B*Diam^DiamExp + C*Loading + D*Moisture + K, start = list(K = -2.0, A = 571, B = 57000, C = 3.0, D = 0.1, DiamExp = 1.5))
+
+summary(nlsmod)
 
 
-outmat <- cbind(tempvec, medvec)
-colnames(outmat) <- c("mean temp", "median temp")
+rt2 <- read.csv("CopyofRysData.csv")
 
-write.table(outmat, "outmat.txt")
+rtcomb <- read.csv("CombBurn_ResTimeData.csv")
+
+restime2 <- rt2$Residence.Time..s.
+Betavals <- rt2$beta..Packing.Ratio...mm.3.mm.3.
+Diam <- rt2$Diameter..mm.
+Loading <- rt2$Fuel.Loading..tons.acre.
+
+
+
+nlsmod <- nls(restime2 ~ A*Betavals + B*Diam^DiamExp + C*Loading + K, start = list(K = -2.0, A = 571, B = 57000, C = 3.0, DiamExp = 1.5))
+
+summary(nlsmod)
+
+plot(log(Diam), log(restime))
+
+logdiam <- log(Diam)
+lrt <- log(restime2)
+plot(Loading, lrt)
+
+plot(Betavals, lrt)
+
+logdiam <- log(Diam)
+logloading <- log(Loading)
+
+lmod <- lm(lrt ~ logloading  +logdiam + Betavals *logdiam )
+summary(lmod)
+
+plot(lmod$residuals)
+
+betaseq <- seq(0, 1, by = .01)
+
+a1 <- -1
+a2 <- 0.5
+betacrit <- 0.5
+b1 <- -10
+b2 <- 10
+d <- 3
+restimemod <- a1*exp(b1*(betaseq - betacrit))+a2*exp(b2*(betaseq - betacrit))+d
+plot(betaseq, restimemod, type = "l")
+
+
+a1 <- 0
+b1 <- 1
+c1 <- 2
+e1 <- 0.1
+f1 <- 1
+
+restimemod2 <- a1+b1*(betaseq - betacrit)+c1*(betaseq - betacrit)^2 +e1*exp(f1*betaseq - betacrit)
+plot(betaseq, restimemod2, type = "l")
+
+
+plot(betaseq, restimemod, type = "l")
+
+
+lfit <- predict(lmod)
+plot(lrt, lfit)
+abline(0, 1)
+
+head(rtcomb)
+
+diam_comb <- rtcomb$Diam..mm.
+loading_comb <- rtcomb$loading..kg.m2.
+rt_comb <- rtcomb$restime..s.
+rt_beta <- rtcomb$Beta
+
+logdiam_comb <- log(diam_comb)
+logloading_comb <- log(loading_comb)
+logrt_comb <- log(rt_comb)
+
+lmod_comb <- lm(logrt_comb ~ logloading_comb * logdiam_comb + rt_beta*logdiam_comb)
+summary(lmod_comb)
+
+
+logrt_all <- c(lrt, logrt_comb)
+logloading_all <- c(logloading, logloading_comb)
+logdiam_all <- c(logdiam, logdiam_comb)
+beta_all <- c(Betavals, rt_beta)
+iscomb <- c(rep(0, length(lrt)), rep(1, length(logrt_comb)))
+
+allmod <- lm(logrt_all ~ logloading_all*logdiam_all+  beta_all*logdiam_all)
+summary(allmod)
+
+allpred <- predict(allmod)
+plot(logrt_all, allpred)
+
+points(logrt_all[iscomb == 0], allpred[iscomb == 0], col = "red")
+
+abline(0, 1)
+
+
+
+
+
+
